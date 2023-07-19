@@ -202,7 +202,7 @@ def generate_afterglows(rng,nevents,t,shorts=0):
     
     return meta_data[meta_data['detectable']]
 
-def distribute_events(rng,afterglows,gal_coords,fitsfile):
+def distribute_events(rng,models,gal_coords,fitsfile):
     ra_max = np.max([fitsfiles[0][0].header['COR1RA1'],
                      fitsfiles[0][0].header['COR2RA1'],
                      fitsfiles[0][0].header['COR3RA1'],
@@ -221,22 +221,22 @@ def distribute_events(rng,afterglows,gal_coords,fitsfile):
                       fitsfiles[0][0].header['COR3DEC1'],
                       fitsfiles[0][0].header['COR4DEC1']])
     
-    coords = np.array([rng.uniform(ra_min,ra_max,len(afterglows)),
-                       rng.uniform(dec_min,dec_max,len(afterglows))])
-    afterglows = afterglows.assign(ra = coords[0],dec = coords[1])
+    coords = np.array([rng.uniform(ra_min,ra_max,len(models)),
+                       rng.uniform(dec_min,dec_max,len(models))])
+    models = models.assign(ra = coords[0],dec = coords[1])
     
-    n_gal_events = int(np.floor(len(afterglows)/2))
+    n_gal_events = int(np.floor(len(models)/2))
     if n_gal_events > len(gal_coords):
         n_gal_events = len(gal_coords)
 
     indices = rng.choice(np.array(gal_coords.index),n_gal_events,replace=False)
     for i in range(n_gal_events):
-        afterglows.iloc[i,-2] = gal_coords['ra'][indices[i]]
-        afterglows.iloc[i,-1] = gal_coords['dec'][indices[i]]
+        models.iloc[i,-2] = gal_coords['ra'][indices[i]]
+        models.iloc[i,-1] = gal_coords['dec'][indices[i]]
         
-    return afterglows
+    return models
 
-def add_fakes(afterglows,light_curves,names,fitsfiles,cals):
+def add_fakes(models,light_curves,names,fitsfiles,cals):
     for i in range(len(fitsfiles)):
         if os.path.exists(names[i].replace('.fits','_fakes.fits')):
             continue
@@ -250,12 +250,12 @@ def add_fakes(afterglows,light_curves,names,fitsfiles,cals):
                      verbose=False,
                      quietmode=True)[0])
         
-        Xs,Ys = wcs.wcs_world2pix(afterglows['ra'],afterglows['dec'],1)
+        Xs,Ys = wcs.wcs_world2pix(models['ra'],models['dec'],1)
         print(names[i],cals['zeropoint'][cals['file'] == names[i]])
         cal = float(cals['zeropoint'][cals['file'] == names[i]])
         mags = [float(light_curves[j]['gmag'][
             light_curves[j]['names'] == names[i]]) 
-            for j in range(len(afterglows))]
+            for j in range(len(models))]
         mags = np.array([np.nan if mag > 24.5 else mag for mag in mags])
         fluxes = 10**(-(mags + cal)/2.5)
         
@@ -311,26 +311,7 @@ if __name__ == "__main__":
     
     if os.path.exists('light_curves/') == False:
         os.makedirs('light_curves/')
-    added_df = None
-    if os.path.exists('light_curves/' + field_run + '/') == False:
-        os.makedirs('light_curves/' + field_run + '/')
-        if len(glob.glob('light_curves/' + field_run + '/')) == 0:
-            added_lcs = glob.glob('light_curves/' + field_run + '/')
-            print('Found ' + str(len(added_lcs)) + ' added light curves!')
-            added_df = pd.DataFrame({'theta_v':[np.nan]*len(added_lcs),
-                                     'theta_w':[np.nan]*len(added_lcs),
-                                     'b':[np.nan]*len(added_lcs),
-                                     'z':[np.nan]*len(added_lcs),
-                                     'd_L':[np.nan]*len(added_lcs),
-                                     'n0':[np.nan]*len(added_lcs),
-                                     'p':[np.nan]*len(added_lcs),
-                                     'epsilon_B':[np.nan]*len(added_lcs),
-                                     'epsilon_e':[np.nan]*len(added_lcs),
-                                     'Eiso':[np.nan]*len(added_lcs),
-                                     'tGRB':[np.nan]*len(added_lcs),
-                                     'detectable':[True]*len(added_lcs),
-                                     'short':[False]*len(added_lcs),
-                                     'lc_name':added_lcs})
+
     print("Reading in fits files ...")
     fitsnames = glob.glob(args.datadir + field_run + '_' + str(ccd) +
                       '/*/c4d_*_ooi_g_v1/c4d_*_ooi_g_v1_ext' 
@@ -345,23 +326,22 @@ if __name__ == "__main__":
                              '/gals.csv')
     
     if os.path.exists(args.datadir + field_run + '_' + str(ccd) + 
-                      '/afterglows.csv'):
-        afterglows = pd.read_csv(args.datadir + field_run + '_' + str(ccd) + 
-                                 '/afterglows.csv')
+                      '/models.csv'):
+        models = pd.read_csv(args.datadir + field_run + '_' + str(ccd) + 
+                                 '/models.csv')
     else:
-        print("Generating afterglows ...")
-        afterglows = generate_afterglows(rng,nevents,t,shorts=shorts)
-        afterglows = afterglows.assign(lc_name=afterglows.index.astype(str) 
+        print("Generating models ...")
+        models = generate_afterglows(rng,nevents,t,shorts=shorts)
+        models = models.assign(lc_name=models.index.astype(str) 
                                        + '.csv')
-        afterglows = pd.concat([afterglows,added_df])
-        afterglows = distribute_events(rng,afterglows,gal_coords,fitsfiles[0])
-        afterglows.to_csv(args.datadir + field_run + '_' + str(ccd) + 
-                          '/afterglows.csv',index=False)
+        models = distribute_events(rng,models,gal_coords,fitsfiles[0])
+        models.to_csv(args.datadir + field_run + '_' + str(ccd) + 
+                          '/models.csv',index=False)
         print("Done!")
     
     light_curves = [pd.read_csv('light_curves/' + field_run + '/' + lc_name) 
-                    for lc_name in afterglows.lc_name]
+                    for lc_name in models.lc_name]
     
-    print("Adding afterglows to images ...")
-    add_fakes(afterglows,light_curves,fitsnames,fitsfiles,cals)
+    print("Adding models to images ...")
+    add_fakes(models,light_curves,fitsnames,fitsfiles,cals)
     print("All Done!")
