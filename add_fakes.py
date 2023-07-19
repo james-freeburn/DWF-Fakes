@@ -4,13 +4,13 @@ import astropy.units as u
 import glob
 import os
 from astropy.wcs import WCS
-from scipy.special import erf
 from astropy.io import fits
 import afterglowpy as grb
 from astropy.cosmology import Planck18 as cosmo
 import dask.dataframe as dd
 from datastats.calculate_FWHM import calculate_FWHM
 from astropy.modeling.functional_models import Moffat2D
+import argparse
 
 def add_star(data,X,Y,flux,FWHM,alpha=4.765):
 
@@ -24,7 +24,9 @@ def add_star(data,X,Y,flux,FWHM,alpha=4.765):
     zarr = np.array([psf(xarr,y) for y in yarr])
 
     star = np.array([[np.trapz([
-        np.trapz(z_x,xarr[i*res:i*res+res+1]) for z_x in zarr[i*res:i*res+res+1,j*res:j*res+res+1]],yarr[j*res:j*res+res+1])
+        np.trapz(z_x,xarr[i*res:i*res+res+1]) 
+        for z_x in
+        zarr[i*res:i*res+res+1,j*res:j*res+res+1]],yarr[j*res:j*res+res+1])
              for i in range(0,51)] for j in range(0,51)])
     for i in range(51):
         i_index = i-25+int(np.round(X))
@@ -45,8 +47,10 @@ def GRB_parameters(rng,nevents,t,shorts = 0):
     if shorts == 0:
         tGRB = rng.integers(-np.max(t) + 3, 1440, nevents)
     else:
-        tGRB = np.concatenate([rng.uniform(-np.max(t) + 3, 1440, nevents - shorts),
-                              (t[rng.integers(0, len(t)-1, shorts)] - np.max(t))/60.])
+        tGRB = np.concatenate([rng.uniform(-np.max(t) + 3, 1440, 
+                                           nevents - shorts),
+                              (t[rng.integers(0, len(t)-1, shorts)]
+                               - np.max(t))/60.])
     short = np.concatenate([[False]*(nevents-shorts),[True]*shorts])
 
     theta_wings = rng.uniform(0.1,np.pi/2,nevents)
@@ -181,7 +185,8 @@ def check_detectability(row,field_run,names,t_mins):
         if detectability:
             lc = pd.DataFrame(np.transpose([names,t,gmag]),
                               columns=['names','t','gmag'])
-            lc.to_csv('light_curves/' + field_run + '/' + str(int(row.name)) + '.csv',index=False)
+            lc.to_csv('light_curves/' + field_run + '/' + str(int(row.name))
+                      + '.csv',index=False)
         
     return pd.Series(d, dtype=object)
 
@@ -265,14 +270,44 @@ def add_fakes(afterglows,light_curves,names,fitsfiles,cals):
                              overwrite=True)
     
 if __name__ == "__main__":
+    
+    parser = argparse.ArgumentParser(description='correct photometry')
+    parser.add_argument('-d', '--datadir',
+                        type=str,
+                        default='data/',
+                        nargs=1,
+                        help='Path to data where fakes are to be added.')
+    parser.add_argument('-f', '--field_run',
+                        type=str,
+                        nargs=1,
+                        help='The field run that fakes are to be added to \
+                            with format <field>_<mm>_<yyyy>.')
+    parser.add_argument('-c', '--ccd',
+                        type=int,
+                        nargs=1,
+                        help='The CCD that fakes are to be added to.')
+    parser.add_argument('-n', '--nevents',
+                        type=int,
+                        default=1000,
+                        nargs=1,
+                        help='Number of events to force to occur during \
+                            observations.')
+    parser.add_argument('-s', '--shorts',
+                        type=int,
+                        default=0,
+                        nargs=1,
+                        help='Number of events to force to occur during \
+                            observations.')
+    args = parser.parse_args()
+ 
+    nevents = args.nevents
+    shorts = args.shorts
+    field_run = args.field_run
+    ccd = args.ccd
+ 
     rng = np.random.default_rng(seed=12345)
-    nevents = 1100
-    shorts = 100
-    field_run = 'FRB190711_09_2022'
-    ccd = 22
 
-    fakes = pd.read_csv('fakes.csv')
-    cals = pd.read_csv('data/' + field_run + '_' + str(22) + '/cals.csv')
+    cals = pd.read_csv(args.datadir + field_run + '_' + str(ccd) + '/cals.csv')
     
     if os.path.exists('light_curves/') == False:
         os.makedirs('light_curves/')
@@ -297,7 +332,7 @@ if __name__ == "__main__":
                                      'short':[False]*len(added_lcs),
                                      'lc_name':added_lcs})
     print("Reading in fits files ...")
-    fitsnames = glob.glob('data/' + field_run + '_' + str(ccd) +
+    fitsnames = glob.glob(args.datadir + field_run + '_' + str(ccd) +
                       '/*/c4d_*_ooi_g_v1/c4d_*_ooi_g_v1_ext' 
                       + str(ccd) + '.fits')
     fitsnames = np.sort(np.array(fitsnames))
@@ -306,22 +341,26 @@ if __name__ == "__main__":
     MJDs = np.array([file[0].header['MJD-OBS'] for file in fitsfiles])
     t = (MJDs - MJDs[0])*24*60
     
-    gal_coords = pd.read_csv('data/'+ field_run + '_' + str(ccd) + '/gals.csv')
+    gal_coords = pd.read_csv(args.datadir + field_run + '_' + str(ccd) + 
+                             '/gals.csv')
     
-    if os.path.exists('data/'+ field_run + '_' + str(ccd) + '/afterglows.csv'):
-        afterglows = pd.read_csv('data/'+ field_run + '_' + str(ccd) + 
+    if os.path.exists(args.datadir + field_run + '_' + str(ccd) + 
+                      '/afterglows.csv'):
+        afterglows = pd.read_csv(args.datadir + field_run + '_' + str(ccd) + 
                                  '/afterglows.csv')
     else:
         print("Generating afterglows ...")
         afterglows = generate_afterglows(rng,nevents,t,shorts=shorts)
-        afterglows = afterglows.assign(lc_name=afterglows.index.astype(str) + '.csv')
+        afterglows = afterglows.assign(lc_name=afterglows.index.astype(str) 
+                                       + '.csv')
         afterglows = pd.concat([afterglows,added_df])
         afterglows = distribute_events(rng,afterglows,gal_coords,fitsfiles[0])
-        afterglows.to_csv('data/'+ field_run + '_' + str(ccd) + 
+        afterglows.to_csv(args.datadir + field_run + '_' + str(ccd) + 
                           '/afterglows.csv',index=False)
         print("Done!")
     
-    light_curves = [pd.read_csv('light_curves/' + field_run + '/' + lc_name) for lc_name in afterglows.lc_name]
+    light_curves = [pd.read_csv('light_curves/' + field_run + '/' + lc_name) 
+                    for lc_name in afterglows.lc_name]
     
     print("Adding afterglows to images ...")
     add_fakes(afterglows,light_curves,fitsnames,fitsfiles,cals)
