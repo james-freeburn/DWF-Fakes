@@ -70,7 +70,7 @@ if __name__ == "__main__":
                         type=str,
                         default='0,40',
                         help='Range of magnitudes to correct photometry from')
-    parser.add_argument('-c', '--catalog',
+    parser.add_argument('-p', '--catalog',
                         type=str,
                         nargs=1,
                         help='Catalog to perform photometry with.')
@@ -86,18 +86,15 @@ if __name__ == "__main__":
                         help='Gaia catalog to perform parallax cuts.')
     args = parser.parse_args()
  
-    nevents = args.nevents
-    shorts = args.shorts
-    field_run = args.field_run
-    ccd = args.ccd
-
+    field_run = args.field_run[0]
+    ccd = args.ccd[0]
     phot_args.mag_cut = '15.5,18.5'
     phot_args.catalog = args.catalog
     phot_args.mag_cut = args.mag_cut
     phot_args.gaia = args.gaia
     phot_args.variables = args.variables
-
-    files = glob.glob(args.datadir + field_run + '/*/*/*ext' 
+    print(args.datadir[0] + field_run + '_' + str(ccd) + '/*/*/*ext' + str(ccd) + '.fits')
+    files = glob.glob(args.datadir[0] + field_run  + '_' + str(ccd) + '/*/*/*ext' 
                       + str(ccd) + '.fits')
     
     cals = []
@@ -125,19 +122,19 @@ if __name__ == "__main__":
             data = add_star(data,X,Y,flux,fwhm)
     
         hdul[0].data = data
-        if os.path.exists(args.datadir + field_run + '/cals/')==False:
-            os.makedirs(args.datadir + field_run + '/cals/')
-        hdul[0].writeto(args.datadir + field_run + '/cals/' + 
+        if os.path.exists(args.datadir[0] + field_run + '_' + str(ccd) + '/cals/')==False:
+            os.makedirs(args.datadir[0] + field_run + '_' + str(ccd) + '/cals/')
+        hdul[0].writeto(args.datadir[0] + field_run + '_' + str(ccd) + '/cals/' + 
                         file.split('/')[-1],overwrite=True)
         
-        extract_sources(args.datadir + field_run + '/cals/' + 
+        extract_sources(args.datadir[0] + field_run + '_' + str(ccd) + '/cals/' + 
                         file.split('/')[-1], 
-                        args.datadir + field_run + '/cals/',sextractor)
-        phot_args.files = [(args.datadir + field_run + '/cals/'
+                        args.datadir[0] + field_run + '_' + str(ccd) + '/cals/',sextractor)
+        phot_args.files = [(args.datadir[0] + field_run + '_' + str(ccd) + '/cals/'
                             + file.split('/')[-1]).replace('.fits','.cat')]
         photom_correct(phot_args)
     
-        df = pd.read_csv((args.datadir + field_run + '/cals/'
+        df = pd.read_csv((args.datadir[0] + field_run + '_' + str(ccd) + '/cals/'
                           + file.split('/')[-1]).replace('.fits','_corr.csv'))
         
         mags = []
@@ -154,5 +151,5 @@ if __name__ == "__main__":
         cal_std.append(stdev)
     cal_df = pd.DataFrame(np.transpose(np.array([files,cals,cal_std])),
                           columns=['file','zeropoint'])
-    cal_df.to_csv(args.datadir + field_run + '/cals.csv',index=False)
-    os.system('rm -r ' + args.datadir + field_run + '/cals/')
+    cal_df.to_csv(args.datadir[0] + field_run + '/cals.csv',index=False)
+    os.system('rm -r ' + args.datadir[0] + field_run + '/cals/')
