@@ -1,22 +1,14 @@
 import pandas as pd
 import numpy as np
-import astropy.units as u
 import glob
 import os
-from astropy.coordinates import SkyCoord
+import argparse
 from astropy.wcs import WCS
-from scipy.special import erf
-from functools import partial
 from astropy.io import fits
-import afterglowpy as grb
-from astropy.cosmology import Planck18 as cosmo
-import dask
-import dask.dataframe as dd
 from prep_phot_funcs.extract_sources import extract_sources
 from phot_funcs.correct_photometry import photom_correct
 from datastats.calculate_FWHM import calculate_FWHM
 from astropy.modeling.functional_models import Moffat2D
-from scipy.integrate import simps
 
 def add_star(data,X,Y,flux,FWHM,alpha=4.765):
    
@@ -30,7 +22,9 @@ def add_star(data,X,Y,flux,FWHM,alpha=4.765):
     zarr = np.array([psf(xarr,y) for y in yarr])
 
     star = np.array([[np.trapz([
-        np.trapz(z_x,xarr[i*res:i*res+res+1]) for z_x in zarr[i*res:i*res+res+1,j*res:j*res+res+1]],yarr[j*res:j*res+res+1])
+        np.trapz(z_x,xarr[i*res:i*res+res+1]) 
+        for z_x in 
+        zarr[i*res:i*res+res+1,j*res:j*res+res+1]],yarr[j*res:j*res+res+1])
              for i in range(0,51)] for j in range(0,51)])
     for i in range(51):
         i_index = i-25+int(np.round(X))
@@ -56,63 +50,109 @@ class phot_args:
     overwrite=False
     plots=False
 
-field_run = 'FRB190711_09_2022_22'
-files = glob.glob('data/' + field_run + '/*/*/*ext22.fits')
+if __name__ == "__main__":   
+    parser = argparse.ArgumentParser(description='correct photometry')
+    parser.add_argument('-d', '--datadir',
+                        type=str,
+                        default='data/',
+                        nargs=1,
+                        help='Path to data where fakes are to be added.')
+    parser.add_argument('-f', '--field_run',
+                        type=str,
+                        nargs=1,
+                        help='The field run that fakes are to be added to \
+                            with format <field>_<mm>_<yyyy>.')
+    parser.add_argument('-c', '--ccd',
+                        type=int,
+                        nargs=1,
+                        help='The CCD that fakes are to be added to.')
+    parser.add_argument('-m', '--mag_cut',
+                        type=str,
+                        default='0,40',
+                        help='Range of magnitudes to correct photometry from')
+    parser.add_argument('-c', '--catalog',
+                        type=str,
+                        nargs=1,
+                        help='Catalog to perform photometry with.')
+    parser.add_argument('-v', '--variables',
+                        type=str,
+                        default='',
+                        nargs=1,
+                        help='Variable catalog to remove variable stars.')
+    parser.add_argument('-g', '--gaia',
+                        type=str,
+                        default='',
+                        nargs=1,
+                        help='Gaia catalog to perform parallax cuts.')
+    args = parser.parse_args()
+ 
+    nevents = args.nevents
+    shorts = args.shorts
+    field_run = args.field_run
+    ccd = args.ccd
 
-phot_args.catalog = ['/fred/oz100/jfreeburn/light_curve_test/09_2022/FRB190711/FRB190711_g_1_SM_phot.cat']
-phot_args.mag_cut = '15.5,18.5'
-phot_args.variables = ['/fred/oz100/jfreeburn/light_curve_test/09_2022/FRB190711/variables.csv']
+    phot_args.mag_cut = '15.5,18.5'
+    phot_args.catalog = args.catalog
+    phot_args.mag_cut = args.mag_cut
+    phot_args.gaia = args.gaia
+    phot_args.variables = args.variables
 
-cals = []
-cal_std = []
-sextractor = 'sex'
-
-for file in files:
-    print(file)
+    files = glob.glob(args.datadir + field_run + '/*/*/*ext' 
+                      + str(ccd) + '.fits')
     
-    fwhm=np.abs(calculate_FWHM(
-                ['/fred/oz100/jfreeburn/fakes/' + file],
-                sextractorloc=sextractor,
-                verbose=False,
-                quietmode=True)[0])
-
-    Xs = np.array([1150]*5)
-    Ys = np.linspace(2600,3300,5)
-    fluxes = np.geomspace(500,10000,5)
-
-    hdul = fits.open(file)
-    data = hdul[0].data
-    wcs = WCS(hdul[0].header)
-
-    for X,Y,flux in zip(Xs,Ys,fluxes):
-        data = add_star(data,X,Y,flux,fwhm)
-
-    hdul[0].data = data
-    if os.path.exists('data/' + field_run + '/cals/')==False:
-        os.makedirs('data/' + field_run + '/cals/')
-    hdul[0].writeto('data/' + field_run + '/cals/' + file.split('/')[-1],
-                    overwrite=True)
+    cals = []
+    cal_std = []
+    sextractor = 'sex'
     
-    extract_sources('data/' + field_run + '/cals/' + file.split('/')[-1], 
-                    'data/' + field_run + '/cals/',sextractor)
-    phot_args.files = [('data/' + field_run + '/cals/' + file.split('/')[-1]).replace(
-        '.fits','.cat')]
-    photom_correct(phot_args)
-
-    df = pd.read_csv(('data/' + field_run + '/cals/' + file.split('/')[-1]).replace(
-         '.fits','_corr.csv'))
+    for file in files:
+        print(file)
+        
+        fwhm=np.abs(calculate_FWHM(
+                    [file],
+                    sextractorloc=sextractor,
+                    verbose=False,
+                    quietmode=True)[0])
     
-    mags = []
-    for X,Y in zip(Xs,Ys):
-        distances = [np.sqrt((df_X-X)**2 + (df_Y-Y)**2)
-                     for df_X,df_Y in zip(np.array(df['X_IMAGE']),np.array(df['Y_IMAGE']))]
-        mindex = np.argmin(distances)
-        mags.append(df.iloc[mindex]['MAG_AUTO'])
-    mags = np.sort(mags)[::-1]
-    calibration = np.average(-2.5*np.log10(fluxes) - mags)
-    cals.append(calibration)
-    stdev = np.std(-2.5*np.log10(fluxes) - mags)
-    cal_std.append(stdev)
-cal_df = pd.DataFrame(np.transpose(np.array([files,cals,cal_std])),columns=['file','zeropoint'])
-cal_df.to_csv('data/' + field_run + '/cals.csv',index=False)
-os.system('rm -r ' + 'data/' + field_run + '/cals/')
+        Xs = np.array([1150]*5)
+        Ys = np.linspace(2600,3300,5)
+        fluxes = np.geomspace(500,10000,5)
+    
+        hdul = fits.open(file)
+        data = hdul[0].data
+        wcs = WCS(hdul[0].header)
+    
+        for X,Y,flux in zip(Xs,Ys,fluxes):
+            data = add_star(data,X,Y,flux,fwhm)
+    
+        hdul[0].data = data
+        if os.path.exists(args.datadir + field_run + '/cals/')==False:
+            os.makedirs(args.datadir + field_run + '/cals/')
+        hdul[0].writeto(args.datadir + field_run + '/cals/' + 
+                        file.split('/')[-1],overwrite=True)
+        
+        extract_sources(args.datadir + field_run + '/cals/' + 
+                        file.split('/')[-1], 
+                        args.datadir + field_run + '/cals/',sextractor)
+        phot_args.files = [(args.datadir + field_run + '/cals/'
+                            + file.split('/')[-1]).replace('.fits','.cat')]
+        photom_correct(phot_args)
+    
+        df = pd.read_csv((args.datadir + field_run + '/cals/'
+                          + file.split('/')[-1]).replace('.fits','_corr.csv'))
+        
+        mags = []
+        for X,Y in zip(Xs,Ys):
+            distances = [np.sqrt((df_X-X)**2 + (df_Y-Y)**2)
+                         for df_X,df_Y in 
+                         zip(np.array(df['X_IMAGE']),np.array(df['Y_IMAGE']))]
+            mindex = np.argmin(distances)
+            mags.append(df.iloc[mindex]['MAG_AUTO'])
+        mags = np.sort(mags)[::-1]
+        calibration = np.average(-2.5*np.log10(fluxes) - mags)
+        cals.append(calibration)
+        stdev = np.std(-2.5*np.log10(fluxes) - mags)
+        cal_std.append(stdev)
+    cal_df = pd.DataFrame(np.transpose(np.array([files,cals,cal_std])),
+                          columns=['file','zeropoint'])
+    cal_df.to_csv(args.datadir + field_run + '/cals.csv',index=False)
+    os.system('rm -r ' + args.datadir + field_run + '/cals/')
