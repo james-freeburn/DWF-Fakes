@@ -138,20 +138,21 @@ if __name__ == "__main__":
                         help='Model you want to use for fakes.')
     args = parser.parse_args()
  
-    nevents = args.nevents
-    shorts = args.shorts
-    field_run = args.field_run
-    ccd = args.ccd
+    nevents = args.nevents[0]
+    shorts = args.shorts[0]
+    field_run = args.field_run[0]
+    ccd = args.ccd[0]
  
     rng = np.random.default_rng(seed=12345)
 
-    cals = pd.read_csv(args.datadir + field_run + '_' + str(ccd) + '/cals.csv')
+    cals = pd.read_csv(args.datadir[0] + field_run + '_' 
+                       + str(ccd) + '/cals.csv')
     
     if os.path.exists('light_curves/') == False:
         os.makedirs('light_curves/')
 
     print("Reading in fits files ...")
-    fitsnames = glob.glob(args.datadir + field_run + '_' + str(ccd) +
+    fitsnames = glob.glob(args.datadir[0] + field_run + '_' + str(ccd) +
                       '/*/c4d_*_ooi_g_v1/c4d_*_ooi_g_v1_ext' 
                       + str(ccd) + '.fits')
     fitsnames = np.sort(np.array(fitsnames))
@@ -160,12 +161,12 @@ if __name__ == "__main__":
     MJDs = np.array([file[0].header['MJD-OBS'] for file in fitsfiles])
     t = (MJDs - MJDs[0])*24*60
     
-    gal_coords = pd.read_csv(args.datadir + field_run + '_' + str(ccd) + 
+    gal_coords = pd.read_csv(args.datadir[0] + field_run + '_' + str(ccd) + 
                              '/gals.csv')
     
-    if os.path.exists(args.datadir + field_run + '_' + str(ccd) + 
+    if os.path.exists(args.datadir[0] + field_run + '_' + str(ccd) + 
                       '/models.csv'):
-        models = pd.read_csv(args.datadir + field_run + '_' + str(ccd) + 
+        models = pd.read_csv(args.datadir[0] + field_run + '_' + str(ccd) + 
                                  '/models.csv')
     else:
         print("Generating models ...")
@@ -175,7 +176,7 @@ if __name__ == "__main__":
         models = models.assign(lc_name=models.index.astype(str) 
                                        + '.csv')
         models = distribute_events(rng,models,gal_coords,fitsfiles[0])
-        models.to_csv(args.datadir + field_run + '_' + str(ccd) + 
+        models.to_csv(args.datadir[0] + field_run + '_' + str(ccd) + 
                           '/models.csv',index=False)
         print("Done!")
     
