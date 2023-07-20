@@ -96,7 +96,7 @@ if __name__ == "__main__":
     print(args.datadir[0] + field_run + '_' + str(ccd) + '/*/*/*ext' + str(ccd) + '.fits')
     files = glob.glob(args.datadir[0] + field_run  + '_' + str(ccd) + '/*/*/*ext' 
                       + str(ccd) + '.fits')
-    
+    print(files) 
     cals = []
     cal_std = []
     sextractor = 'sex'
@@ -133,7 +133,12 @@ if __name__ == "__main__":
         phot_args.files = [(args.datadir[0] + field_run + '_' + str(ccd) + '/cals/'
                             + file.split('/')[-1]).replace('.fits','.cat')]
         photom_correct(phot_args)
-    
+        
+        if os.path.exists((args.datadir[0] + field_run + '_' + str(ccd) + '/cals/' 
+                           + file.split('/')[-1]).replace('.fits','_corr.csv')) == False:
+            cals.append(np.nan)
+            cal_std.append(np.nan)
+            continue
         df = pd.read_csv((args.datadir[0] + field_run + '_' + str(ccd) + '/cals/'
                           + file.split('/')[-1]).replace('.fits','_corr.csv'))
         
@@ -150,6 +155,6 @@ if __name__ == "__main__":
         stdev = np.std(-2.5*np.log10(fluxes) - mags)
         cal_std.append(stdev)
     cal_df = pd.DataFrame(np.transpose(np.array([files,cals,cal_std])),
-                          columns=['file','zeropoint'])
+                          columns=['file','zeropoint','zeropoint_err'])
     cal_df.to_csv(args.datadir[0] + field_run + '/cals.csv',index=False)
     os.system('rm -r ' + args.datadir[0] + field_run + '/cals/')
