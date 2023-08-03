@@ -131,7 +131,7 @@ if __name__ == "__main__":
                         nargs=1,
                         help='Number of events to force to occur during \
                             observations.')
-    parser.add_argument('-m', '-model',
+    parser.add_argument('-m', '--model',
                         type=str,
                         default='afterglows',
                         nargs=1,
@@ -148,8 +148,10 @@ if __name__ == "__main__":
     cals = pd.read_csv(args.datadir[0] + field_run + '_' 
                        + str(ccd) + '/cals.csv')
     
-    if os.path.exists('light_curves/') == False:
-        os.makedirs('light_curves/')
+    if os.path.exists(args.datadir[0] + field_run + '_' + str(ccd)
+                      + '/light_curves/') == False:
+        os.makedirs(args.datadir[0] + field_run + '_' + str(ccd) 
+                    + '/light_curves/')
 
     print("Reading in fits files ...")
     fitsnames = glob.glob(args.datadir[0] + field_run + '_' + str(ccd) +
@@ -170,8 +172,10 @@ if __name__ == "__main__":
                                  '/models.csv')
     else:
         print("Generating models ...")
-        if args.model == 'afterglows':
+        if args.model[0] == 'afterglows':
             models = generate_afterglows(rng,nevents,field_run,fitsnames,t,
+                                         args.datadir[0] + field_run + 
+                                         '_' + str(ccd) + '/light_curves/',
                                          shorts=shorts)
         models = models.assign(lc_name=models.index.astype(str) 
                                        + '.csv')
@@ -180,7 +184,8 @@ if __name__ == "__main__":
                           '/models.csv',index=False)
         print("Done!")
     
-    light_curves = [pd.read_csv('light_curves/' + field_run + '/' + lc_name) 
+    light_curves = [pd.read_csv(args.datadir[0] + field_run + '_' + str(ccd) + 
+                                '/light_curves/' + lc_name) 
                     for lc_name in models.lc_name]
     
     print("Adding models to images ...")
