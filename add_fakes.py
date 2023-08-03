@@ -145,16 +145,16 @@ if __name__ == "__main__":
  
     rng = np.random.default_rng(seed=12345)
 
-    cals = pd.read_csv(args.datadir[0] + field_run + '_' 
-                       + str(ccd) + '/cals.csv')
+    cals = pd.read_csv(args.datadir[0] + field_run + '/cals/cals_ext' + 
+                       str(ccd) + '.csv')
     
-    if os.path.exists(args.datadir[0] + field_run + '_' + str(ccd)
-                      + '/light_curves/') == False:
-        os.makedirs(args.datadir[0] + field_run + '_' + str(ccd) 
-                    + '/light_curves/')
+    if os.path.exists(args.datadir[0] + field_run
+                      + '/light_curves/' + str(ccd) + '/') == False:
+        os.makedirs(args.datadir[0] + field_run 
+                    + '/light_curves/' + str(ccd) + '/')
 
     print("Reading in fits files ...")
-    fitsnames = glob.glob(args.datadir[0] + field_run + '_' + str(ccd) +
+    fitsnames = glob.glob(args.datadir[0] + field_run +
                       '/*/c4d_*_ooi_g_v1/c4d_*_ooi_g_v1_ext' 
                       + str(ccd) + '.fits')
     fitsnames = np.sort(np.array(fitsnames))
@@ -163,29 +163,29 @@ if __name__ == "__main__":
     MJDs = np.array([file[0].header['MJD-OBS'] for file in fitsfiles])
     t = (MJDs - MJDs[0])*24*60
     
-    gal_coords = pd.read_csv(args.datadir[0] + field_run + '_' + str(ccd) + 
-                             '/gals.csv')
+    gal_coords = pd.read_csv(args.datadir[0] + field_run + 
+                             '/gals/gals_ext' + str(ccd) + '.csv')
     
-    if os.path.exists(args.datadir[0] + field_run + '_' + str(ccd) + 
-                      '/models.csv'):
-        models = pd.read_csv(args.datadir[0] + field_run + '_' + str(ccd) + 
-                                 '/models.csv')
+    if os.path.exists(args.datadir[0] + field_run + 
+                      '/models/models_ext' + str(ccd) + '.csv'):
+        models = pd.read_csv(args.datadir[0] + field_run + 
+                                 '/models/models_ext' + str(ccd) + '.csv')
     else:
         print("Generating models ...")
         if args.model[0] == 'afterglows':
             models = generate_afterglows(rng,nevents,field_run,fitsnames,t,
                                          args.datadir[0] + field_run + 
-                                         '_' + str(ccd) + '/light_curves/',
+                                         '/light_curves/' + str(ccd) + '/',
                                          shorts=shorts)
         models = models.assign(lc_name=models.index.astype(str) 
                                        + '.csv')
         models = distribute_events(rng,models,gal_coords,fitsfiles[0])
-        models.to_csv(args.datadir[0] + field_run + '_' + str(ccd) + 
-                          '/models.csv',index=False)
+        models.to_csv(args.datadir[0] + field_run + 
+                          '/models/models_ext' + str(ccd) + '.csv',index=False)
         print("Done!")
     
-    light_curves = [pd.read_csv(args.datadir[0] + field_run + '_' + str(ccd) + 
-                                '/light_curves/' + lc_name) 
+    light_curves = [pd.read_csv(args.datadir[0] + field_run + 
+                                '/light_curves/' + str(ccd) + '/' + lc_name) 
                     for lc_name in models.lc_name]
     
     print("Adding models to images ...")

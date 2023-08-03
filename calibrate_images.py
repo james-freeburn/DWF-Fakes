@@ -122,24 +122,34 @@ if __name__ == "__main__":
             data = add_star(data,X,Y,flux,fwhm)
     
         hdul[0].data = data
-        if os.path.exists(args.datadir[0] + field_run + '/cals_temp/')==False:
-            os.makedirs(args.datadir[0] + field_run + '/cals_temp/')
-        hdul[0].writeto(args.datadir[0] + field_run + '/cals_temp/' + 
+        if os.path.exists(args.datadir[0] + field_run + '/cals_ext' + str(ccd) 
+                          + 'temp/')==False:
+            os.makedirs(args.datadir[0] + field_run + '/cals_ext' + str(ccd) 
+                        + 'temp/')
+        hdul[0].writeto(args.datadir[0] + field_run + '/cals_ext' + str(ccd) 
+                        + 'temp/' + 
                         file.split('/')[-1],overwrite=True)
         
-        extract_sources(args.datadir[0] + field_run + '/cals_temp/' + 
+        extract_sources(args.datadir[0] + field_run + '/cals_ext' + str(ccd) 
+                        + 'temp/' + 
                         file.split('/')[-1], 
-                        args.datadir[0] + field_run + '/cals_temp/',sextractor)
-        phot_args.files = [(args.datadir[0] + field_run + '/cals_temp/'
+                        args.datadir[0] + field_run + '/cals_ext' + str(ccd) 
+                        + 'temp/',sextractor)
+        phot_args.files = [(args.datadir[0] + field_run + '/cals_ext'
+                            + str(ccd) 
+                            + 'temp/'
                             + file.split('/')[-1]).replace('.fits','.cat')]
         photom_correct(phot_args)
         
-        if os.path.exists((args.datadir[0] + field_run + '/cals_temp/' 
-                           + file.split('/')[-1]).replace('.fits','_corr.csv')) == False:
+        if os.path.exists((args.datadir[0] + field_run + '/cals_ext' + str(ccd) 
+                           + 'temp/' 
+                           + file.split('/')[-1]).replace(
+                               '.fits','_corr.csv')) == False:
             cals.append(np.nan)
             cal_std.append(np.nan)
             continue
-        df = pd.read_csv((args.datadir[0] + field_run + '/cals_temp/'
+        df = pd.read_csv((args.datadir[0] + field_run + '/cals_ext' + str(ccd) 
+                          + 'temp/'
                           + file.split('/')[-1]).replace('.fits','_corr.csv'))
         
         mags = []
@@ -156,8 +166,11 @@ if __name__ == "__main__":
         cal_std.append(stdev)
     cal_df = pd.DataFrame(np.transpose(np.array([files,cals,cal_std])),
                           columns=['file','zeropoint','zeropoint_err'])
-    if os.path.exists(args.datadir[0] + field_run + '/cals_temp/')==False:
-            os.makedirs(args.datadir[0] + field_run + '/cals_temp/')
+    if os.path.exists(args.datadir[0] + field_run + '/cals_ext' + str(ccd) 
+                      + 'temp/')==False:
+            os.makedirs(args.datadir[0] + field_run + '/cals_ext' + str(ccd) 
+                        + 'temp/')
     cal_df.to_csv(args.datadir[0] + field_run + '/cals/cals_ext' + str(ccd) + 
                   '.csv',index=False)
-    os.system('rm -r ' + args.datadir[0] + field_run + '/cals_temp/')
+    os.system('rm -r ' + args.datadir[0] + field_run + '/cals_ext' + str(ccd) 
+              + 'temp/')
