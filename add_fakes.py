@@ -66,7 +66,10 @@ def distribute_events(rng,models,gal_coords,fitsfile):
     for i in range(n_gal_events):
         models.iloc[i,-2] = gal_coords['ra'][indices[i]]
         models.iloc[i,-1] = gal_coords['dec'][indices[i]]
-        
+    
+    models = models.assign(
+        gal=np.concatenate([[True]*n_gal_events,
+                            [False]*(len(models)-n_gal_events)]))
     return models
 
 def add_fakes(models,light_curves,names,fitsfiles,cals):
