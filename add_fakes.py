@@ -62,14 +62,12 @@ def distribute_events(rng,models,gal_coords,fitsfile):
     if n_gal_events > len(gal_coords):
         n_gal_events = len(gal_coords)
 
-    indices = rng.choice(np.array(gal_coords.index),n_gal_events,replace=False)
+    indices = rng.choice(np.array(models.index),n_gal_events,replace=False)
+    models = models.assign(gal = False)
     for i in range(n_gal_events):
-        models.iloc[i,-2] = gal_coords['ra'][indices[i]]
-        models.iloc[i,-1] = gal_coords['dec'][indices[i]]
-    
-    models = models.assign(
-        gal=np.concatenate([[True]*n_gal_events,
-                            [False]*(len(models)-n_gal_events)]))
+        models.iloc[indices[i],-3] = gal_coords['ra'][i]
+        models.iloc[indices[i],-2] = gal_coords['dec'][i]
+        models.iloc[indices[i],-1] = True     
     return models
 
 def add_fakes(models,light_curves,names,fitsfiles,cals):
@@ -164,7 +162,6 @@ if __name__ == "__main__":
     fitsfiles = [fits.open(file) for file in fitsnames]
     print("Done!")
     MJDs = np.array([file[0].header['MJD-OBS'] for file in fitsfiles])
-    t = (MJDs - MJDs[0])*24*60
     
     gal_coords = pd.read_csv(args.datadir[0] + field_run + 
                              '/gals/gals_ext' + str(ccd) + '.csv')
@@ -176,7 +173,7 @@ if __name__ == "__main__":
     else:
         print("Generating models ...")
         if args.model[0] == 'afterglows':
-            models = generate_afterglows(rng,nevents,field_run,fitsnames,t,
+            models = generate_afterglows(rng,nevents,fitsnames,MJDs,
                                          args.datadir[0] + field_run + 
                                          '/light_curves/' + str(ccd) + '/',
                                          shorts=shorts)

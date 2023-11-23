@@ -51,14 +51,15 @@ if __name__ == "__main__":
         if np.isin(num,nums_gone):
             continue
         dist = np.sqrt((ra - galaxies.X_WORLD)**2 + (dec - galaxies.Y_WORLD)**2)
-        mask = (galaxies.NUMBER != num) & (dist*3600. < 10.)
+        mask = (galaxies.NUMBER != num) & (dist*3600. < 20.)
       
         if len(galaxies[mask]) == 0:
             continue
      
         nums_gone = pd.concat([nums_gone,galaxies[mask].NUMBER])
         galaxies = galaxies[mask == False]
-        
+    print(galaxies)
+    print(nums_gone) 
     galaxies = galaxies.reset_index(drop=True)
     galaxies = galaxies.rename(columns={'X_WORLD':'ra',
                                         'Y_WORLD':'dec'})
