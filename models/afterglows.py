@@ -34,6 +34,7 @@ def GRBFR(z):
 
 def population_synthesis(rng,nevents,cosmo,
                          E_gamma_dash = 1.5e48,E_p_dash = 1.5):    
+
     print('\tGenerating Data ... ')
     Gamma_0s,theta_js = generate_GRBs(rng,nevents)
     nevents = len(Gamma_0s)
@@ -46,10 +47,13 @@ def population_synthesis(rng,nevents,cosmo,
     thetaObs_vals = rng.choice(theta, nevents, p=probability_density)
     
     print('\tCalculating params ... ')
+
+    jets = [1,4]
     df = pd.DataFrame([])
     df = df.assign(Gamma_0=Gamma_0s,
                    theta_j=theta_js,
                    theta_v=thetaObs_vals,
+                   jet=rng.choice(jets,nevents),
                    Beta_0 = (1.-(1./Gamma_0s**2.))**0.5,
                    E_gamma = E_gamma_dash*Gamma_0s)
     
@@ -66,15 +70,9 @@ def population_synthesis(rng,nevents,cosmo,
     # Placing GRBs at redshifts based on comoving volumes and SFH.
     zs,d_Ls = GRB_redshifts(rng, len(df), cosmo)
     df = df.assign(z=zs,d_L=d_Ls)
-    
-    print('\tGenerating structured jet params ...')
-    tlength = rng.integers(20,200,len(df))
-    tGRB = [rng.integers(-tlength_val + 3, 1440) 
-                          for tlength_val in tlength]
+
     # Generating GRB times and light curve coverage.
-    df = df.assign(tlength = tlength,
-                   tGRB = tGRB,
-                   n0 = rng.uniform(0.1,30.,len(df)),
+    df = df.assign(n0 = rng.uniform(0.1,30.,len(df)),
                    b = rng.uniform(0.0,3.0,len(df)),
                    epsilon_B = [0.008]*len(df),
                    epsilon_e = [0.02]*len(df),
@@ -85,6 +83,7 @@ def population_synthesis(rng,nevents,cosmo,
     # Uniform distribution of theta_wing values
     
     return df[['theta_v',
+              'jet',
               'theta_w',
               'theta_j',
               'b',
@@ -95,8 +94,6 @@ def population_synthesis(rng,nevents,cosmo,
               'epsilon_B',
               'epsilon_e',
               'Eiso',
-              'tlength',
-              'tGRB',
               'Gamma_0',
               'E_p']]
 
@@ -112,9 +109,9 @@ def GRB_redshifts(rng,nevents,cosmo):
     d_Ls = cosmo.luminosity_distance(np.array(zs)).to(u.cm).value
     return zs,d_Ls
 
-def check_detectability(row,names,MJDs,field_run):
+def check_detectability(row,rng,names,MJDs,field_run):
     d = {}
-
+    
     # For convenience, place arguments into a dict.
     Z = {'jetType':     row.jet,
          'specType':    0,                  # Basic Synchrotron Spectrum
@@ -131,14 +128,17 @@ def check_detectability(row,names,MJDs,field_run):
          'd_L':         row.d_L, # Luminosity distance in cm
          'z':           row.z}   # redshift
 
+    t = (MJDs - MJDs[0])*24.*60.*60.
+    if row.short:
+        d['tGRB'] = t[rng.integers(0, len(t)-1)] - np.max(t)
+    else:
+        d['tGRB'] = rng.uniform(-24.*60.*60., np.max(t))
+    t = t - d['tGRB']
     wavel = 473*10**(-9)
     c = 299792458
     # g-band central frequency
     nu =  c/wavel
     
-    t_mins = (MJDs - MJDs[0])*24*60
-    t = (t_mins + row.tGRB)*60
-
     if -2.5*np.log10(np.max(grb.fluxDensity(
             np.geomspace(1,500,10)*60.,nu, **Z))*10**(-3)) + 8.9 > 23.:
         d['detectable'] = False
@@ -159,22 +159,26 @@ def check_detectability(row,names,MJDs,field_run):
 
     return pd.Series(d, dtype=object)
 
-
-def generate_afterglows(rng,nevents,fitsnames,
-                        MJDs,directory,shorts=0):
+def generate_afterglows(rng,nevents,fitsnames,MJDs,directory,shorts=0):
     # Generating GRB parameters.
     cosmo = FlatLambdaCDM(H0=70, Om0=0.3, Tcmb0=2.725)
-    GRB_population = population_synthesis(MJDs,rng,nevents,cosmo,shorts=shorts)
+    GRB_population = population_synthesis(rng,nevents,cosmo)
+    GRB_population = GRB_population.assign(
+        short = np.concatenate([[False]*(len(GRB_population)-shorts),
+                                [True]*shorts]))
     GRB_population_dd = dd.from_pandas(GRB_population,npartitions=1)
     detectable_arr = GRB_population_dd.apply(check_detectability,axis=1,
+                                             rng=rng,
                                              names=fitsnames,
                                              MJDs=MJDs,
                                              field_run=directory,
-                                     meta={'detectable':bool,
-                                          'peak_mag':float}).compute()
+                                     meta={'tGRB':float,
+                                           'detectable':bool,
+                                           'peak_mag':float}).compute()
     
     GRB_population = GRB_population.assign(
+        tGRB = detectable_arr.tGRB,
         DWF_afterglow = detectable_arr.detectable,
         afterglow_peakmag = detectable_arr.peak_mag)
     
-    return GRB_population[GRB_population['detectable']]
+    return GRB_population[GRB_population['DWF_afterglow']]

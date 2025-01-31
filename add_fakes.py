@@ -67,7 +67,7 @@ def distribute_events(rng,models,gal_coords,fitsfile):
     for i in range(n_gal_events):
         models.iloc[indices[i],-3] = gal_coords['ra'][i]
         models.iloc[indices[i],-2] = gal_coords['dec'][i]
-        models.iloc[indices[i],-1] = True     
+        models.iloc[indices[i],-1] = True 
     return models
 
 def add_fakes(models,light_curves,names,fitsfiles,cals):
@@ -86,9 +86,9 @@ def add_fakes(models,light_curves,names,fitsfiles,cals):
         
         Xs,Ys = wcs.wcs_world2pix(models['ra'],models['dec'],1)
         print(names[i],cals['zeropoint'][cals['file'] == names[i]])
-        cal = float(cals['zeropoint'][cals['file'] == names[i]])
+        cal = float(cals['zeropoint'][cals['file'] == names[i]].iloc[0])
         mags = [float(light_curves[j]['gmag'][
-            light_curves[j]['names'] == names[i]]) 
+            light_curves[j]['names'] == names[i]].iloc[0]) 
             for j in range(len(models))]
         mags = np.array([np.nan if mag > 24.5 else mag for mag in mags])
         fluxes = 10**(-(mags + cal)/2.5)
@@ -104,7 +104,6 @@ def add_fakes(models,light_curves,names,fitsfiles,cals):
                              overwrite=True)
     
 if __name__ == "__main__":
-    
     parser = argparse.ArgumentParser(description='correct photometry')
     parser.add_argument('-d', '--datadir',
                         type=str,
@@ -143,8 +142,13 @@ if __name__ == "__main__":
     shorts = args.shorts[0]
     field_run = args.field_run[0]
     ccd = args.ccd[0]
- 
-    rng = np.random.default_rng(seed=12345)
+
+    tempdir = 'temp_ext' + str(ccd) + '/'
+    if os.path.exists(tempdir) == False:   
+        os.makedirs(tempdir)
+    os.chdir(tempdir)
+
+    rng = np.random.default_rng()
 
     cals = pd.read_csv(args.datadir[0] + field_run + '/cals/cals_ext' + 
                        str(ccd) + '.csv')
@@ -166,6 +170,8 @@ if __name__ == "__main__":
     gal_coords = pd.read_csv(args.datadir[0] + field_run + 
                              '/gals/gals_ext' + str(ccd) + '.csv')
     
+    if os.path.exists(args.datadir[0] + field_run + '/models/') == False:
+        os.makedirs(args.datadir[0] + field_run + '/models/')
     if os.path.exists(args.datadir[0] + field_run + 
                       '/models/models_ext' + str(ccd) + '.csv'):
         models = pd.read_csv(args.datadir[0] + field_run + 
@@ -179,6 +185,8 @@ if __name__ == "__main__":
                                          shorts=shorts)
         models = models.assign(lc_name=models.index.astype(str) 
                                        + '.csv')
+        models = models.reset_index(drop=True)
+
         models = distribute_events(rng,models,gal_coords,fitsfiles[0])
         models.to_csv(args.datadir[0] + field_run + 
                           '/models/models_ext' + str(ccd) + '.csv',index=False)
@@ -190,4 +198,6 @@ if __name__ == "__main__":
     
     print("Adding models to images ...")
     add_fakes(models,light_curves,fitsnames,fitsfiles,cals)
+    os.chdir('../')
+    os.system('rm -r ' + tempdir)
     print("All Done!")

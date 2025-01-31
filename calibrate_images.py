@@ -100,19 +100,44 @@ if __name__ == "__main__":
     cals = []
     cal_std = []
     sextractor = 'sex'
+   
+    Xs = np.array([1150]*5)
+    Ys = np.linspace(2600,3300,5)
+    fluxes = np.geomspace(500,10000,5)
     
     for file in files:
         print(file)
-        
+        print(os.path.exists((args.datadir[0] + field_run + '/cals_ext' + str(ccd)
+                           + 'temp/'
+                           + file.split('/')[-1]).replace(
+                               '.fits','_corr.csv')))
+        if os.path.exists((args.datadir[0] + field_run + '/cals_ext' + str(ccd)
+                           + 'temp/'
+                           + file.split('/')[-1]).replace(
+                               '.fits','_corr.csv')):
+
+            df = pd.read_csv((args.datadir[0] + field_run + '/cals_ext' + str(ccd)
+                          + 'temp/'
+                          + file.split('/')[-1]).replace('.fits','_corr.csv'))
+
+            mags = []
+            for X,Y in zip(Xs,Ys):
+                distances = [np.sqrt((df_X-X)**2 + (df_Y-Y)**2)
+                         for df_X,df_Y in
+                         zip(np.array(df['X_IMAGE']),np.array(df['Y_IMAGE']))]
+                mindex = np.argmin(distances)
+                mags.append(df.iloc[mindex]['MAG'])
+            mags = np.sort(mags)[::-1]
+            calibration = np.median(-2.5*np.log10(fluxes) - mags)
+            cals.append(calibration)
+            stdev = np.std(-2.5*np.log10(fluxes) - mags)
+            cal_std.append(stdev)
+            continue
         fwhm=np.abs(calculate_FWHM(
                     [file],
                     sextractorloc=sextractor,
                     verbose=False,
                     quietmode=True)[0])
-    
-        Xs = np.array([1150]*5)
-        Ys = np.linspace(2600,3300,5)
-        fluxes = np.geomspace(500,10000,5)
     
         hdul = fits.open(file)
         data = hdul[0].data
@@ -139,12 +164,20 @@ if __name__ == "__main__":
                             + str(ccd) 
                             + 'temp/'
                             + file.split('/')[-1]).replace('.fits','.cat')]
-        photom_correct(phot_args)
         
-        if os.path.exists((args.datadir[0] + field_run + '/cals_ext' + str(ccd) 
-                           + 'temp/' 
+        try:
+            photom_correct(phot_args)
+
+            if os.path.exists((args.datadir[0] + field_run + '/cals_ext' + str(ccd)
+                           + 'temp/'
                            + file.split('/')[-1]).replace(
                                '.fits','_corr.csv')) == False:
+                cals.append(np.nan)
+                cal_std.append(np.nan)
+                continue
+        except:
+            print('Photometry correct did no work, moving on ...')
+
             cals.append(np.nan)
             cal_std.append(np.nan)
             continue
@@ -158,9 +191,11 @@ if __name__ == "__main__":
                          for df_X,df_Y in 
                          zip(np.array(df['X_IMAGE']),np.array(df['Y_IMAGE']))]
             mindex = np.argmin(distances)
-            mags.append(df.iloc[mindex]['MAG_AUTO'])
+            mags.append(df.iloc[mindex]['MAG'])
+            
         mags = np.sort(mags)[::-1]
-        calibration = np.average(-2.5*np.log10(fluxes) - mags)
+        calibration = np.median(-2.5*np.log10(fluxes) - mags)
+
         cals.append(calibration)
         stdev = np.std(-2.5*np.log10(fluxes) - mags)
         cal_std.append(stdev)
