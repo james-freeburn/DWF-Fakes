@@ -4,6 +4,17 @@ import argparse
 import os
 from datastats.run_sourceextractor import run_sourceExtractor
 
+def read_cat(file):
+    with open(file,'r') as f:
+        string = f.read()
+        sexcolumns = [header.split()[1] for header in np.append(string.split('#')[1:-1],string.split('#')[-1].split('\n')[0])]
+        f.close()
+                                     
+    cat = np.genfromtxt(file, unpack=True, filling_values=np.nan,
+                        invalid_raise=False)
+    cat = pd.DataFrame(data=np.transpose(cat), columns=sexcolumns)
+    return cat
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Find galaxies in a fits \
@@ -29,10 +40,7 @@ if __name__ == "__main__":
     print('Done! Finding galaxies ... ')
     
     catname = args.file[0].split('/')[-1].replace('.fits','.cat')
-    columns=['NUMBER','X_IMAGE','Y_IMAGE','X_WORLD','Y_WORLD','FLUX_MODEL',
-             'FLUXERR_MODEL','MAG_MODEL','MAGERR_MODEL','FWHM_IMAGE',
-             'FWHM_WORLD','ELLIPTICITY','SPREAD_MODEL']
-    cat = pd.read_csv(catname,delim_whitespace=True,names=columns,header=None)
+    cat = read_cat(catname)
     
     xmax = np.max(cat.X_IMAGE)
     xmin = np.min(cat.X_IMAGE)
