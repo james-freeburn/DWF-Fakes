@@ -118,8 +118,8 @@ if __name__ == "__main__":
                         help='The field run that fakes are to be added to \
                             with format <field>_<mm>_<yyyy>.')
     parser.add_argument('-c', '--ccd',
-                        type=int,
-                        nargs=1,
+                        type=str,
+                        default='all',
                         help='The CCD that fakes are to be added to.')
     parser.add_argument('-n', '--nevents',
                         type=int,
@@ -143,58 +143,57 @@ if __name__ == "__main__":
     nevents = args.nevents[0]
     shorts = args.shorts[0]
     field_run = args.field_run[0]
-    ccd = args.ccd[0]
 
-    tempdir = 'temp_ext' + str(ccd) + '/'
+    tempdir = 'temp_' + ccd + '/'
     if os.path.exists(tempdir) == False:   
         os.makedirs(tempdir)
     os.chdir(tempdir)
 
     rng = np.random.default_rng()
 
-    cals = pd.read_csv(args.datadir[0] + field_run + '/cals/cals_ext' + 
-                       str(ccd) + '.csv')
+    cals = pd.read_csv(args.datadir[0] + field_run + '/cals/cals_' + 
+                       ccd + '.csv')
     
     if os.path.exists(args.datadir[0] + field_run
-                      + '/light_curves/' + str(ccd) + '/') == False:
+                      + '/light_curves/' + ccd + '/') == False:
         os.makedirs(args.datadir[0] + field_run 
-                    + '/light_curves/' + str(ccd) + '/')
+                    + '/light_curves/' + ccd + '/')
 
     print("Reading in fits files ...")
     fitsnames = glob.glob(args.datadir[0] + field_run +
-                      '/*/c4d_*_ooi_g_v1/c4d_*_ooi_g_v1_ext' 
-                      + str(ccd) + '.fits')
+                      '/*/c4d_*_ooi_g_v1/c4d_*_ooi_g_v1_' 
+                      + ccd + '.fits')
     fitsnames = np.sort(np.array(fitsnames))
     fitsfiles = [fits.open(file) for file in fitsnames]
     print("Done!")
     MJDs = np.array([file[0].header['MJD-OBS'] for file in fitsfiles])
     
     gal_coords = pd.read_csv(args.datadir[0] + field_run + 
-                             '/gals/gals_ext' + str(ccd) + '.csv')
+                             '/gals/gals_' + ccd + '.csv')
     
     if os.path.exists(args.datadir[0] + field_run + '/models/') == False:
         os.makedirs(args.datadir[0] + field_run + '/models/')
     if os.path.exists(args.datadir[0] + field_run + 
-                      '/models/models_ext' + str(ccd) + '.csv'):
+                      '/models/models_' + ccd + '.csv'):
         models = pd.read_csv(args.datadir[0] + field_run + 
-                                 '/models/models_ext' + str(ccd) + '.csv')
+                                 '/models/models_' + ccd + '.csv')
     else:
         print("Generating models ...")
         if args.model[0] == 'afterglows':
-            models = generate_afterglows(rng,nevents,fitsnames,MJDs,
+            models = generate_afterglows(rng,nevents,fitsnames,ccd,MJDs,
                                          args.datadir[0] + field_run + 
-                                         '/light_curves/' + str(ccd) + '/',
+                                         '/light_curves/' + ccd + '/',
                                          shorts=shorts)
         models = models.assign(lc_name=models.index.astype(str) 
                                        + '.csv')
         models = models.reset_index(drop=True)
         models = distribute_events(rng,models,gal_coords,fitsfiles[0])
         models.to_csv(args.datadir[0] + field_run + 
-                          '/models/models_ext' + str(ccd) + '.csv',index=False)
+                          '/models/models_' + ccd + '.csv',index=False)
         print("Done!")
     
     light_curves = [pd.read_csv(args.datadir[0] + field_run + 
-                                '/light_curves/' + str(ccd) + '/' + lc_name) 
+                                '/light_curves/' + ccd + '/' + lc_name) 
                     for lc_name in models.lc_name]
     
     print("Adding models to images ...")

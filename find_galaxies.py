@@ -15,7 +15,6 @@ if __name__ == "__main__":
                         help='File to run on.')
     parser.add_argument('-c', '--ccd',
                         type=str,
-                        nargs=1,
                         help='CCD number of the image.')
     args = parser.parse_args()
     
@@ -63,9 +62,9 @@ if __name__ == "__main__":
     galaxies = galaxies.reset_index(drop=True)
     galaxies = galaxies.rename(columns={'X_WORLD':'ra',
                                         'Y_WORLD':'dec'})
-    galaxies[['ra','dec']].to_csv('gals_ext' + str(args.ccd[0]) + '.csv',
+    galaxies[['ra','dec']].to_csv('gals_' + args.ccd + '.csv',
                                                    index=False)
-    galaxies[['ra','dec']].to_csv('gals_ext' + str(args.ccd[0]) + 
+    galaxies[['ra','dec']].to_csv('gals_' + args.ccd + 
                                                    '_ds9check.txt',
                                   index=False,sep=' ',header=False)
     
