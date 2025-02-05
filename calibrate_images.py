@@ -87,11 +87,11 @@ if __name__ == "__main__":
  
     field_run = args.field_run[0]
     ccd = args.ccd
-    phot_args.mag_cut = '15.5,18.5'
     phot_args.catalog = args.catalog
     phot_args.mag_cut = args.mag_cut
     phot_args.gaia = args.gaia
     phot_args.variables = args.variables
+    phot_args.error_correction = False
     print(args.datadir[0] + field_run + '/*/*/*' + ccd + '.fits')
     files = glob.glob(args.datadir[0] + field_run  + '/*/*/*' 
                       + ccd + '.fits')

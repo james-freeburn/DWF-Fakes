@@ -143,6 +143,7 @@ if __name__ == "__main__":
     nevents = args.nevents[0]
     shorts = args.shorts[0]
     field_run = args.field_run[0]
+    ccd = args.ccd
 
     tempdir = 'temp_' + ccd + '/'
     if os.path.exists(tempdir) == False:   
@@ -176,11 +177,11 @@ if __name__ == "__main__":
     if os.path.exists(args.datadir[0] + field_run + 
                       '/models/models_' + ccd + '.csv'):
         models = pd.read_csv(args.datadir[0] + field_run + 
-                                 '/models/models_' + ccd + '.csv')
+                             '/models/models_' + ccd + '.csv')
     else:
         print("Generating models ...")
         if args.model[0] == 'afterglows':
-            models = generate_afterglows(rng,nevents,fitsnames,ccd,MJDs,
+            models = generate_afterglows(rng,nevents,fitsnames,MJDs,
                                          args.datadir[0] + field_run + 
                                          '/light_curves/' + ccd + '/',
                                          shorts=shorts)
