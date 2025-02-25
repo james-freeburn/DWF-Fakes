@@ -34,7 +34,7 @@ def GRBFR(z):
 
 def population_synthesis(rng,nevents,cosmo,
                          E_gamma_dash = 1.5e48,E_p_dash = 1.5):    
-    
+
     print('\tGenerating Data ... ')
     Gamma_0s,theta_js = generate_GRBs(rng,nevents)
     nevents = len(Gamma_0s)
@@ -47,6 +47,7 @@ def population_synthesis(rng,nevents,cosmo,
     thetaObs_vals = rng.choice(theta, nevents, p=probability_density)
     
     print('\tCalculating params ... ')
+
     jets = [1,4]
     df = pd.DataFrame([])
     df = df.assign(Gamma_0=Gamma_0s,
@@ -69,7 +70,7 @@ def population_synthesis(rng,nevents,cosmo,
     # Placing GRBs at redshifts based on comoving volumes and SFH.
     zs,d_Ls = GRB_redshifts(rng, len(df), cosmo)
     df = df.assign(z=zs,d_L=d_Ls)
-        
+
     # Generating GRB times and light curve coverage.
     df = df.assign(n0 = rng.uniform(0.1,30.,len(df)),
                    b = rng.uniform(0.0,3.0,len(df)),
@@ -133,7 +134,6 @@ def check_detectability(row,rng,names,MJDs,field_run):
     else:
         d['tGRB'] = rng.uniform(-24.*60.*60., np.max(t))
     t = t - d['tGRB']
-    
     wavel = 473*10**(-9)
     c = 299792458
     # g-band central frequency
@@ -159,7 +159,6 @@ def check_detectability(row,rng,names,MJDs,field_run):
 
     return pd.Series(d, dtype=object)
 
-
 def generate_afterglows(rng,nevents,fitsnames,MJDs,directory,shorts=0):
     # Generating GRB parameters.
     cosmo = FlatLambdaCDM(H0=70, Om0=0.3, Tcmb0=2.725)
@@ -183,5 +182,3 @@ def generate_afterglows(rng,nevents,fitsnames,MJDs,directory,shorts=0):
         afterglow_peakmag = detectable_arr.peak_mag)
     
     return GRB_population[GRB_population['DWF_afterglow']]
-
-

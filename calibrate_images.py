@@ -196,7 +196,7 @@ if __name__ == "__main__":
     cals = []
     cal_std = []
     sextractor = 'sex'
-    
+   
     Xs = np.array([1150]*5)
     Ys = np.linspace(2600,3300,5)
     fluxes = np.geomspace(500,10000,5)
@@ -249,6 +249,7 @@ if __name__ == "__main__":
                             + ccd 
                             + 'temp/'
                             + file.split('/')[-1]).replace('.fits','.cat')]
+        
         try:
             photom_correct(phot_args)
 
@@ -261,6 +262,7 @@ if __name__ == "__main__":
                 continue
         except:
             print('Photometry correct did no work, moving on ...')
+
             cals.append(np.nan)
             cal_std.append(np.nan)
             continue
@@ -275,8 +277,10 @@ if __name__ == "__main__":
                          zip(np.array(df['X_IMAGE']),np.array(df['Y_IMAGE']))]
             mindex = np.argmin(distances)
             mags.append(df.iloc[mindex]['MAG'])
+            
         mags = np.sort(mags)[::-1]
         calibration = np.median(-2.5*np.log10(fluxes) - mags)
+
         cals.append(calibration)
         stdev = np.std(-2.5*np.log10(fluxes) - mags)
         cal_std.append(stdev)

@@ -68,7 +68,6 @@ def distribute_events(rng,models,gal_coords,fitsfile):
         models.iloc[indices[i],-3] = gal_coords['ra'][i]
         models.iloc[indices[i],-2] = gal_coords['dec'][i]
         models.iloc[indices[i],-1] = True 
-        
     return models
 
 def add_fakes(models,light_curves,names,fitsfiles,cals):
@@ -101,7 +100,6 @@ def add_fakes(models,light_curves,names,fitsfiles,cals):
                              overwrite=True)
     
 if __name__ == "__main__":
-    
     parser = argparse.ArgumentParser(description='correct photometry')
     parser.add_argument('-d', '--datadir',
                         type=str,
@@ -184,6 +182,7 @@ if __name__ == "__main__":
         models = models.assign(lc_name=models.index.astype(str) 
                                        + '.csv')
         models = models.reset_index(drop=True)
+
         models = distribute_events(rng,models,gal_coords,fitsfiles[0])
         models.to_csv(args.datadir[0] + field_run + 
                           '/models/models_' + ccd + '.csv',index=False)
