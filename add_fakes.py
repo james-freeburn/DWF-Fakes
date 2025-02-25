@@ -79,11 +79,7 @@ def add_fakes(models,light_curves,names,fitsfiles,cals):
         wcs = WCS(fitsfiles[i][0].header)
         data = fitsfiles[i][0].data
 
-        fwhm=np.abs(calculate_FWHM(
-                     [names[i]],
-                     sextractorloc='sex',
-                     verbose=False,
-                     quietmode=True)[0])
+        fwhm=fitsfiles[i][0].header['FWHM']/0.263
         
         Xs,Ys = wcs.wcs_world2pix(models['ra'],models['dec'],1)
         print(names[i],cals['zeropoint'][cals['file'] == names[i]])
