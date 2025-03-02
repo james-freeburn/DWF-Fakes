@@ -109,7 +109,7 @@ def GRB_redshifts(rng,nevents,cosmo):
     d_Ls = cosmo.luminosity_distance(np.array(zs)).to(u.cm).value
     return zs,d_Ls
 
-def check_detectability(row,rng,names,MJDs,field_run):
+def check_detectability(row,rng,names,MJDs,field_run,maglimit):
     d = {}
     
     # For convenience, place arguments into a dict.
@@ -140,7 +140,7 @@ def check_detectability(row,rng,names,MJDs,field_run):
     nu =  c/wavel
     
     if -2.5*np.log10(np.max(grb.fluxDensity(
-            np.geomspace(1,500,10)*60.,nu, **Z))*10**(-3)) + 8.9 > 23.:
+            np.geomspace(1,500,10)*60.,nu, **Z))*10**(-3)) + 8.9 > maglimit:
         d['detectable'] = False
         d['peak_mag'] = np.nan
     else:
@@ -149,7 +149,7 @@ def check_detectability(row,rng,names,MJDs,field_run):
         Fnu = np.append(Fnu_before,Fnu_GRB)
 
         gmag = -2.5*np.log10(np.array(Fnu)*10**(-3)) + 8.9
-        d['detectable'] = np.min(gmag[np.isnan(gmag) == False]) < 23.
+        d['detectable'] = np.min(gmag[np.isnan(gmag) == False]) < maglimit
         d['peak_mag'] = np.min(gmag[np.isnan(gmag) == False])
 
         if d['detectable']:
@@ -172,6 +172,7 @@ def generate_afterglows(rng,nevents,fitsnames,MJDs,directory,shorts=0):
                                              names=fitsnames,
                                              MJDs=MJDs,
                                              field_run=directory,
+                                             maglimit=24.,
                                      meta={'tGRB':float,
                                            'detectable':bool,
                                            'peak_mag':float}).compute()
